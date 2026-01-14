@@ -1,0 +1,32 @@
+# =========================
+# UI
+# =========================
+streamlit==1.35.0
+
+# =========================
+# LangChain Ecosystem (COMPATIBLE SET)
+# =========================
+langchain==0.2.10
+langchain-core==0.2.35
+langchain-openai==0.1.22
+langchain-community==0.2.10
+
+# LangGraph (must be newer than 0.0.40)
+langgraph>=0.0.55
+
+# =========================
+# Vector Store & Retrieval
+# =========================
+chromadb
+faiss-cpu
+tiktoken
+
+# =========================
+# PDF Ingestion
+# =========================
+pypdf
+
+# =========================
+# Environment Variables
+# =========================
+python-dotenv
