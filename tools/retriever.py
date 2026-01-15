@@ -9,12 +9,11 @@ def retrieve_docs(query):
         embedding_function=embeddings
     )
 
-    # Use MMR instead of plain similarity
     docs = db.max_marginal_relevance_search(
         query,
         k=5,
-        fetch_k=15,
-        lambda_mult=0.7
+        fetch_k=20,
+        lambda_mult=0.6
     )
 
     return {
