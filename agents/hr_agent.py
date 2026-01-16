@@ -1,50 +1,48 @@
 from tools.retriever import retrieve_docs
+from tools.intent_classifier import classify_intent
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+RELEVANCE_THRESHOLD = 0.9
 
 def hr_agent(query):
-    q = query.lower()
+    intent = classify_intent("HR", query)
 
-    # ---- ACTION INTENTS ----
+    # ACTION MODE
+    if intent["type"] == "action":
+        return intent
 
-    # 1. Leave application
-    if "apply" in q and "leave" in q:
-        return {
-            "type": "action",
-            "function": "apply_leave",
-            "arguments": {
-                "leave_type": "Casual",
-                "days": 2,
-                "start_date": "tomorrow"
-            }
-        }
-
-    # 2. Schedule meeting with HR
-    if "schedule" in q and "meeting" in q:
-        return {
-            "type": "action",
-            "function": "schedule_meeting",
-            "arguments": {
-                "department": "HR",
-                "title": "HR Discussion",
-                "date": "to_be_decided",
-                "time": "to_be_decided"
-            }
-        }
-
-    # ---- KNOWLEDGE INTENT (RAG) ----
+    # KNOWLEDGE MODE (RAG)
     context = retrieve_docs(query)
 
     if not context["content"]:
-        return {
-            "type": "knowledge",
-            "answer": "No relevant HR policy found in the document.",
-            "citations": []
-        }
+        return {"type": "knowledge", "answer": "Not mentioned in the document.", "citations": []}
 
-    combined_context = "\n".join(context["content"][:3])
+    best_score = context["scores"][0]
+    print("HR Top similarity score:", best_score)
+
+    if best_score > RELEVANCE_THRESHOLD:
+        return {"type": "knowledge", "answer": "Not mentioned in the document.", "citations": []}
+
+    combined = "\n\n".join(context["content"][:3])
+
+    prompt = f"""
+Answer strictly using the context below.
+If the answer is not present say: "Not mentioned in the document."
+
+Context:
+{combined}
+
+Question:
+{query}
+"""
+    answer = llm.invoke(prompt).content.strip()
+
+    if "not mentioned" in answer.lower():
+        return {"type": "knowledge", "answer": "Not mentioned in the document.", "citations": []}
 
     return {
         "type": "knowledge",
-        "answer": f"Based on HR policy documents: {combined_context[:700]}...",
-        "citations": context["pages"]
+        "answer": answer,
+        "citations": context["pages"][:3]
     }
-

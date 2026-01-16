@@ -2,30 +2,31 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import PromptTemplate
 import json
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
-def route_query(query):
-    q = query.lower()
+def route_query(query: str):
+    prompt = f"""
+You are a router for a multi-agent AI assistant.
 
-    # Rule-based routing (fast & accurate)
-    if any(k in q for k in ["leave", "holiday", "salary", "policy", "hr"]):
-        return "HR"
-    if any(k in q for k in ["vpn", "ticket", "laptop", "software", "login"]):
-        return "IT"
-    if any(k in q for k in ["code", "api", "bug", "deploy", "cloud"]):
-        return "DEV"
+Decide which domain should handle the query.
 
-    # LLM fallback
-    prompt = PromptTemplate.from_template(
-        open("prompts/router_prompt.txt").read()
-    )
+Domains:
+- HR  → leave, meetings, salary, policies, people matters
+- IT  → VPN, laptop, login, tickets, wifi, software issues
+- DEV → code, APIs, bugs, deployment, cloud, architecture
+- GENERAL → questions directly about the PDF / Annual Report
 
-    response = llm.invoke(prompt.format(query=query)).content
+Return ONLY JSON:
+{{ "domain": "HR" | "IT" | "DEV" | "GENERAL" }}
 
+User query:
+"{query}"
+"""
+
+    response = llm.invoke(prompt).content.strip()
     try:
-        return json.loads(response).get("domain", "GENERAL")
+        return json.loads(response)["domain"]
     except:
         return "GENERAL"

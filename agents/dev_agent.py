@@ -1,26 +1,49 @@
 from tools.retriever import retrieve_docs
+from tools.intent_classifier import classify_intent
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+RELEVANCE_THRESHOLD = 0.9
 
 def dev_agent(query):
-    q = query.lower()
+    intent = classify_intent("DEV", query)
 
-    # (Optional) Action intent later: build, deploy, create repo, etc.
-    # For now dev agent is knowledge-only
+    if intent["type"] == "action":
+        return intent
 
     context = retrieve_docs(query)
 
-    # SAFE CHECK
     if not context["content"]:
-        return {
-            "type": "knowledge",
-            "answer": "No developer documentation found in the knowledge base. Please upload or ingest developer docs.",
-            "citations": []
-        }
+        return {"type": "knowledge", "answer": "Not mentioned in developer documentation.", "citations": []}
 
-    # Combine multiple chunks for better answers
-    combined_context = "\n".join(context["content"][:2])
+    best_score = context["scores"][0]
+  
+
+    print("DEV Top similarity score:", best_score)
+
+    if best_score > RELEVANCE_THRESHOLD:
+        return {"type": "knowledge", "answer": "Not mentioned in developer documentation.", "citations": []}
+
+    combined = "\n\n".join(context["content"][:3])
+
+    prompt = f"""
+Answer strictly from the developer documentation.
+If not present say: Not mentioned in the document.
+
+Context:
+{combined}
+
+Question:
+{query}
+"""
+
+    answer = llm.invoke(prompt).content.strip()
+
+    if "not mentioned" in answer.lower():
+        return {"type": "knowledge", "answer": "Not mentioned in developer documentation.", "citations": []}
 
     return {
         "type": "knowledge",
-        "answer": f"From developer documentation: {combined_context[:500]}...",
-        "citations": context["pages"]
+        "answer": answer,
+        "citations": context["pages"][:3]
     }
