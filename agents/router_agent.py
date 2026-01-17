@@ -26,7 +26,12 @@ User query:
 """
 
     response = llm.invoke(prompt).content.strip()
+
+    # Safety cleanup
     try:
-        return json.loads(response)["domain"]
+        start = response.find("{")
+        end = response.rfind("}") + 1
+        clean = response[start:end]
+        return json.loads(clean)["domain"]
     except:
         return "GENERAL"

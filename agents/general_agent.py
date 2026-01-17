@@ -2,10 +2,12 @@ from tools.retriever import retrieve_docs
 from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-RELEVANCE_THRESHOLD = 1.1  # looser for GENERAL
+
+# Finance PDFs need higher threshold
+RELEVANCE_THRESHOLD = 1.3  
 
 def general_agent(query):
-    context = retrieve_docs(query)
+    context = retrieve_docs(query, k=8)
 
     if not context["content"]:
         return {
@@ -17,7 +19,7 @@ def general_agent(query):
     best_score = context["scores"][0]
     print("GENERAL Top similarity score:", best_score)
 
-    # Hard reject only if retrieval is truly weak
+    # Reject only if similarity is very weak
     if best_score > RELEVANCE_THRESHOLD:
         return {
             "type": "knowledge",
@@ -28,12 +30,9 @@ def general_agent(query):
     combined = "\n\n".join(context["content"][:4])
 
     prompt = f"""
-You are answering using a company annual report.
-
-The context DEFINITELY contains relevant information.
-Do NOT say that information is missing if the context talks about the topic.
-
-Extract the factual answer directly from the context.
+Extract the factual answer from the context.
+Do NOT return JSON.
+Do NOT say "not mentioned" if information exists.
 
 Context:
 {combined}
@@ -41,13 +40,13 @@ Context:
 Question:
 {query}
 
-Answer:
+Answer in plain English:
 """
 
     answer = llm.invoke(prompt).content.strip()
 
-    # Final citation gate: if model still says "not mentioned", drop citations
-    if "not provide" in answer.lower() or "not mentioned" in answer.lower():
+    # Final safety: never attach citations to a refusal
+    if "not mentioned" in answer.lower() or "not provide" in answer.lower():
         return {
             "type": "knowledge",
             "answer": "Not mentioned in the document.",
